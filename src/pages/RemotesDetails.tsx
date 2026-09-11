@@ -235,8 +235,7 @@ export function RemotesDetailsPage() {
 
     const isLocalMode = location.pathname === '/local'
     const diskPath = searchParams.get('disk') ?? ''
-    const isSharedWithMe =
-        !isLocalMode && searchParams.get('sharedWithMe') === 'true'
+    const isSharedWithMe = !isLocalMode && searchParams.get('sharedWithMe') === 'true'
     const currentFs = isLocalMode
         ? diskPath.replace(/\/?$/, '/')
         : `${remoteName}${isSharedWithMe ? ',shared_with_me=true' : ''}:`
@@ -948,7 +947,9 @@ export function RemotesDetailsPage() {
                                                     className={({ isActive }) =>
                                                         cn(
                                                             'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                                                            isActive && !isLocalMode && !isSharedWithMe
+                                                            isActive &&
+                                                                !isLocalMode &&
+                                                                !isSharedWithMe
                                                                 ? 'bg-muted text-foreground'
                                                                 : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                                                         )
@@ -970,7 +971,9 @@ export function RemotesDetailsPage() {
                                                         }
                                                     >
                                                         <CloudIcon className="size-3.5 shrink-0" />
-                                                        <span className="truncate">Shared with Me</span>
+                                                        <span className="truncate">
+                                                            Shared with Me
+                                                        </span>
                                                     </NavLink>
                                                 )}
                                             </div>
@@ -1158,9 +1161,9 @@ export function RemotesDetailsPage() {
                                         to={
                                             isLocalMode
                                                 ? buildLocalPathHref(diskPath, '')
-                                                                                                : isSharedWithMe
-                                                                                                    ? buildSharedWithMeHref(remoteName)
-                                                                                                    : buildRemotePathHref(remoteName, '')
+                                                : isSharedWithMe
+                                                  ? buildSharedWithMeHref(remoteName)
+                                                  : buildRemotePathHref(remoteName, '')
                                         }
                                         className="inline-flex items-center transition-colors hover:text-foreground"
                                     >
@@ -1182,15 +1185,15 @@ export function RemotesDetailsPage() {
                                                                   diskPath,
                                                                   item.path
                                                               )
-                                                                                                                        : isSharedWithMe
-                                                                                                                            ? buildSharedWithMeHref(
-                                                                                                                                        remoteName,
-                                                                                                                                        item.path
-                                                                                                                                )
-                                                                                                                            : buildRemotePathHref(
-                                                                                                                                        remoteName,
-                                                                                                                                        item.path
-                                                                                                                                )
+                                                            : isSharedWithMe
+                                                              ? buildSharedWithMeHref(
+                                                                    remoteName,
+                                                                    item.path
+                                                                )
+                                                              : buildRemotePathHref(
+                                                                    remoteName,
+                                                                    item.path
+                                                                )
                                                     }
                                                     className="transition-colors hover:text-foreground"
                                                 >
