@@ -1,0 +1,83 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+    "files": {
+        "includes": [
+            "**",
+            "!node_modules",
+            "!dist",
+            "!.work",
+            "!playwright-report",
+            "!test-results"
+        ],
+        "ignoreUnknown": true
+    },
+    "assist": {
+        "actions": {
+            "source": {
+                "organizeImports": "on"
+            }
+        }
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "a11y": {
+                "noSvgWithoutTitle": "off",
+                "useKeyWithClickEvents": "off",
+                "noLabelWithoutControl": "off",
+                "useSemanticElements": "off",
+                "noRedundantRoles": "off"
+            },
+            "complexity": {
+                "noUselessTypeConstraint": "off",
+                "useSimplifiedLogicExpression": "off",
+                "noExcessiveCognitiveComplexity": "off"
+            },
+            "correctness": {
+                "useImportExtensions": "off",
+                "noUnusedImports": {
+                    "level": "warn",
+                    "fix": "safe"
+                }
+            },
+            "performance": {},
+            "security": {},
+            "style": {
+                "useTemplate": "off",
+                "noNonNullAssertion": "off",
+                "useBlockStatements": "off",
+                "noInferrableTypes": "off",
+                "noDefaultExport": "off",
+                "useNamingConvention": "off",
+                "useForOf": "off"
+            },
+            "suspicious": {
+                "noArrayIndexKey": "off",
+                "noExplicitAny": "off"
+            }
+        },
+        "includes": ["**", "!**/*.js"]
+    },
+    "formatter": {
+        "enabled": true,
+        "formatWithErrors": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 100
+    },
+    "css": {
+        "parser": {
+            "cssModules": true,
+            "tailwindDirectives": true
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "single",
+            "quoteProperties": "preserve",
+            "trailingCommas": "es5",
+            "semicolons": "asNeeded"
+        },
+        "globals": ["it", "describe", "expect", "test"]
+    }
+}
