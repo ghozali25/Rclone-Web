@@ -92,7 +92,21 @@ export function FinderPage() {
                     }
                 })
             )
-            return remoteResults.flat().slice(0, 500)
+            return remoteResults
+                .flat()
+                .sort((a, b) => {
+                    const nameOrder = a.name.localeCompare(b.name, undefined, {
+                        sensitivity: 'base',
+                        numeric: true,
+                    })
+                    if (nameOrder !== 0) return nameOrder
+                    const remoteOrder = a.remote.localeCompare(b.remote, undefined, {
+                        sensitivity: 'base',
+                    })
+                    if (remoteOrder !== 0) return remoteOrder
+                    return a.path.localeCompare(b.path, undefined, { sensitivity: 'base' })
+                })
+                .slice(0, 500)
         },
         enabled: !!remotesQuery.data?.length,
         staleTime: 30_000,
