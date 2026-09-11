@@ -167,6 +167,16 @@ export function App() {
                             {t('nav.dashboard')}
                         </NavLink>
                         <NavLink
+                            to="/finder"
+                            className={({ isActive }) =>
+                                isActive
+                                    ? 'px-3 py-1.5 text-sm text-foreground'
+                                    : 'px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
+                            }
+                        >
+                            {t('nav.finder')}
+                        </NavLink>
+                        <NavLink
                             to="/local"
                             className={
                                 isExploreActive
