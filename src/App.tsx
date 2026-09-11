@@ -14,6 +14,7 @@ import { updateCheckQueryOptions } from '@/rclone/update'
 
 const navItems: { key: TranslationKey; to: string; end?: boolean }[] = [
     { key: 'nav.remotes', to: '/remotes', end: true },
+    { key: 'nav.analysis', to: '/analysis' },
     { key: 'nav.mounts', to: '/mounts' },
     { key: 'nav.serves', to: '/serves' },
     { key: 'nav.transfers', to: '/transfers' },

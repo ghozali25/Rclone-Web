@@ -1,4 +1,6 @@
 import { CheckCircle2Icon, RefreshCwIcon, XCircleIcon } from 'lucide-react'
+import { useState } from 'react'
+import { TablePagination } from '@/components/TablePagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -80,6 +82,11 @@ export function TransfersTable({
     isStopping: boolean
 }) {
     const t = useT()
+    const [page, setPage] = useState(1)
+    const pageSize = 10
+    const pageCount = Math.max(1, Math.ceil(jobs.length / pageSize))
+    const currentPage = Math.min(page, pageCount)
+    const pagedJobs = jobs.slice((currentPage - 1) * pageSize, currentPage * pageSize)
     return (
         <div className="overflow-hidden rounded-xl border">
             <Table className="min-w-[1664px] table-fixed">
@@ -152,7 +159,7 @@ export function TransfersTable({
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {jobs.map((job) => {
+                    {pagedJobs.map((job) => {
                         const ui = statusUi[job.status]
                         const StatusIcon = ui.icon
                         const badge = (
@@ -293,6 +300,7 @@ export function TransfersTable({
                     })}
                 </TableBody>
             </Table>
+            <TablePagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
         </div>
     )
 }

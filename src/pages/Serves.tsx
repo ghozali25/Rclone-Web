@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { GlobeIcon, PlusIcon } from 'lucide-react'
 import { useMemo } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { toRecord } from '@/components/OptionField'
@@ -8,6 +9,7 @@ import { PageContent } from '@/components/PageContent'
 import { PageHeader } from '@/components/PageHeader'
 import { PageWrapper } from '@/components/PageWrapper'
 import { RefreshButton } from '@/components/RefreshButton'
+import { TablePagination } from '@/components/TablePagination'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,6 +37,7 @@ export function ServesPage() {
     const t = useT()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
+    const [page, setPage] = useState(1)
 
     const servesQuery = useQuery({
         queryKey: ['serves'],
@@ -76,6 +79,10 @@ export function ServesPage() {
             }
         })
     }, [servesQuery.data])
+    const pageSize = 10
+    const pageCount = Math.max(1, Math.ceil(serves.length / pageSize))
+    const currentPage = Math.min(page, pageCount)
+    const pagedServes = serves.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
     return (
         <PageWrapper>
@@ -206,7 +213,7 @@ export function ServesPage() {
                             </TableHeader>
 
                             <TableBody>
-                                {serves.map((serve) => (
+                                {pagedServes.map((serve) => (
                                     <TableRow key={serve.id} className="hover:bg-muted/20">
                                         <TableCell className="px-4 py-4 font-mono text-sm">
                                             {serve.id}
@@ -251,6 +258,11 @@ export function ServesPage() {
                                 ))}
                             </TableBody>
                         </Table>
+                        <TablePagination
+                            page={currentPage}
+                            pageCount={pageCount}
+                            onPageChange={setPage}
+                        />
                     </div>
                 ) : null}
             </PageContent>

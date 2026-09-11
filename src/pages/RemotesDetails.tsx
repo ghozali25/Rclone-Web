@@ -39,6 +39,7 @@ import {
 import { toast } from 'sonner'
 import { PageContent } from '@/components/PageContent'
 import { RefreshButton } from '@/components/RefreshButton'
+import { TablePagination } from '@/components/TablePagination'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
     Breadcrumb,
@@ -274,6 +275,7 @@ export function RemotesDetailsPage() {
     const { remoteName = '' } = useParams()
     const [searchParams, setSearchParams] = useSearchParams()
     const [searchTerm, setSearchTerm] = useState('')
+    const [browsePage, setBrowsePage] = useState(1)
     const [sidebarSearch, setSidebarSearch] = useState('')
     const [sidebarCompact, setSidebarCompact] = useState(false)
     const [transferSource, setTransferSource] = useState<{
@@ -724,6 +726,13 @@ export function RemotesDetailsPage() {
         if (!q) return items
         return items.filter((item) => item.Name.toLowerCase().includes(q))
     }, [items, searchTerm])
+    const browsePageSize = 25
+    const browsePageCount = Math.max(1, Math.ceil(filteredItems.length / browsePageSize))
+    const currentBrowsePage = Math.min(browsePage, browsePageCount)
+    const pagedItems = filteredItems.slice(
+        (currentBrowsePage - 1) * browsePageSize,
+        currentBrowsePage * browsePageSize
+    )
 
     const breadcrumbItems = useMemo(() => {
         const segments = getPathSegments(currentPath)
@@ -1563,7 +1572,7 @@ export function RemotesDetailsPage() {
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            filteredItems.map((item, index) => {
+                                            pagedItems.map((item, index) => {
                                                 const fileTypeUi = getFileTypeIcon(item.Name)
                                                 const FileTypeIcon = fileTypeUi.icon
 
@@ -1830,6 +1839,11 @@ export function RemotesDetailsPage() {
                                         )}
                                     </TableBody>
                                 </Table>
+                                <TablePagination
+                                    page={currentBrowsePage}
+                                    pageCount={browsePageCount}
+                                    onPageChange={setBrowsePage}
+                                />
                             </div>
                         </div>
                     )}

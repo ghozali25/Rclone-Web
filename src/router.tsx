@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { Spinner } from '@/components/ui/spinner'
 import { useStore } from '@/lib/store'
+import { AnalysisPage } from '@/pages/Analysis'
 import { DashboardPage } from '@/pages/Dashboard'
 import { FinderPage } from '@/pages/Finder'
 import { LoginPage } from '@/pages/Login'
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
                 children: [
                     { index: true, element: <DashboardPage /> },
                     { path: 'finder', element: <FinderPage /> },
+                    { path: 'analysis', element: <AnalysisPage /> },
                     { path: 'remotes', element: <RemotesPage /> },
                     { path: 'remotes/new', element: <RemotesNewPage /> },
                     { path: 'remotes/:remoteName', element: <RemotesDetailsPage /> },

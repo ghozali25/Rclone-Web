@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { PageContent } from '@/components/PageContent'
 import { PageHeader } from '@/components/PageHeader'
 import { PageWrapper } from '@/components/PageWrapper'
+import { TablePagination } from '@/components/TablePagination'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -43,6 +44,7 @@ export function FinderPage() {
     const deferredSearch = useDeferredValue(search)
     const [selected, setSelected] = useState<FinderItem | null>(null)
     const [typeFilter, setTypeFilter] = useState<'all' | 'files' | 'folders'>('all')
+    const [page, setPage] = useState(1)
 
     const remotesQuery = useQuery({
         queryKey: ['remotes', 'list'],
@@ -118,6 +120,10 @@ export function FinderPage() {
         if (typeFilter === 'folders') return items.filter((item) => item.isDir)
         return items
     }, [resultsQuery.data, typeFilter])
+    const pageSize = 25
+    const pageCount = Math.max(1, Math.ceil(results.length / pageSize))
+    const currentPage = Math.min(page, pageCount)
+    const pagedResults = results.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
     function openItem(item: FinderItem) {
         const folder = item.isDir ? item.path : item.path.split('/').slice(0, -1).join('/')
@@ -217,7 +223,7 @@ export function FinderPage() {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        results.slice(0, 100).map((item) => (
+                                        pagedResults.map((item) => (
                                             <TableRow
                                                 key={`${item.remote}:${item.path}`}
                                                 data-selected={
@@ -250,6 +256,11 @@ export function FinderPage() {
                                     )}
                                 </TableBody>
                             </Table>
+                            <TablePagination
+                                page={currentPage}
+                                pageCount={pageCount}
+                                onPageChange={setPage}
+                            />
                         </Card>
 
                         <Card className="h-fit">

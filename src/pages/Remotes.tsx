@@ -1,5 +1,13 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangleIcon, HardDriveIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import {
+    AlertTriangleIcon,
+    CloudIcon,
+    FolderOpenIcon,
+    HardDriveIcon,
+    PencilIcon,
+    PlusIcon,
+    Trash2Icon,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -9,6 +17,7 @@ import { PageWrapper } from '@/components/PageWrapper'
 import { RefreshButton } from '@/components/RefreshButton'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
     Empty,
     EmptyContent,
@@ -19,14 +28,7 @@ import {
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
+import { Table, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useT } from '@/lib/i18n'
 import { cn } from '@/lib/ui'
@@ -188,64 +190,64 @@ export function RemotesPage() {
                 ) : null}
 
                 {filteredRemotes.length > 0 ? (
-                    <div className="overflow-hidden border rounded-xl">
-                        <Table>
-                            <TableHeader className="bg-muted/40">
-                                <TableRow className="hover:bg-muted/40">
-                                    <TableHead className="px-6 font-semibold uppercase h-14 text-muted-foreground">
-                                        {t('remotes.name')}
-                                    </TableHead>
-                                    <TableHead className="px-4 font-semibold uppercase h-14 text-muted-foreground">
-                                        {t('remotes.type')}
-                                    </TableHead>
-                                    <TableHead className="px-4 font-semibold uppercase h-14 text-muted-foreground">
-                                        {t('remotes.usage')}
-                                    </TableHead>
-                                    <TableHead className="px-4 font-semibold text-right uppercase h-14 text-muted-foreground">
-                                        {t('common.actions')}
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {filteredRemotes.map((remote) => {
+                            const usageStatus = usageByName.get(remote.name)?.data
+                            const isLoading = usageByName.get(remote.name)?.isLoading ?? true
+                            const isHealthy = usageStatus?.state === 'success'
 
-                            <TableBody>
-                                {filteredRemotes.map((remote) => (
-                                    <TableRow
-                                        key={remote.name}
-                                        className="hover:bg-muted/20"
-                                        onClick={() => navigate(`/remotes/${remote.name}`)}
-                                    >
-                                        <TableCell className="px-6 py-6">
+                            return (
+                                <Card
+                                    key={remote.name}
+                                    className="group transition-shadow hover:shadow-md"
+                                >
+                                    <CardHeader className="border-b pb-4">
+                                        <div className="flex items-start justify-between gap-3">
                                             <Link
                                                 to={`/remotes/${remote.name}`}
-                                                className="inline-flex cursor-pointer rounded-md outline-none group focus-visible:ring-2 focus-visible:ring-ring"
-                                                onClick={(e) => e.stopPropagation()}
+                                                className="flex min-w-0 items-center gap-3"
                                             >
-                                                <span className="text-lg font-semibold group-hover:text-primary">
-                                                    {remote.name}
+                                                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600">
+                                                    <CloudIcon className="size-5" />
+                                                </span>
+                                                <span className="min-w-0">
+                                                    <CardTitle className="truncate text-base group-hover:text-primary">
+                                                        {remote.name}
+                                                    </CardTitle>
+                                                    <span className="mt-1 block truncate font-mono text-xs text-muted-foreground">
+                                                        {remote.type}
+                                                    </span>
                                                 </span>
                                             </Link>
-                                        </TableCell>
-
-                                        <TableCell className="px-4 py-6">
-                                            <span className="font-mono text-base text-muted-foreground">
-                                                {remote.type}
-                                            </span>
-                                        </TableCell>
-
-                                        <TableCell className="px-4 py-6">
-                                            <UsageCell
-                                                status={usageByName.get(remote.name)?.data}
-                                                isLoading={
-                                                    usageByName.get(remote.name)?.isLoading ?? true
+                                            <span
+                                                className={cn(
+                                                    'mt-1 size-2 shrink-0 rounded-full',
+                                                    isLoading
+                                                        ? 'bg-muted-foreground/40'
+                                                        : isHealthy
+                                                          ? 'bg-emerald-500'
+                                                          : 'bg-amber-500'
+                                                )}
+                                                title={
+                                                    isHealthy
+                                                        ? t('dashboard.ok')
+                                                        : t('remotes.error')
                                                 }
                                             />
-                                        </TableCell>
-
-                                        <TableCell
-                                            className="px-4 py-6"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <div className="flex items-center justify-end gap-1">
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <UsageCell status={usageStatus} isLoading={isLoading} />
+                                        <div className="flex items-center justify-between gap-2 border-t pt-3">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() => navigate(`/remotes/${remote.name}`)}
+                                            >
+                                                <FolderOpenIcon />
+                                                {t('remotes.browse')}
+                                            </Button>
+                                            <div className="flex items-center gap-1">
                                                 <Tooltip>
                                                     <TooltipTrigger
                                                         render={
@@ -303,11 +305,11 @@ export function RemotesPage() {
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )
+                        })}
                     </div>
                 ) : null}
             </PageContent>
