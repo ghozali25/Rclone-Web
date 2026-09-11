@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { FileIcon, FolderIcon, SearchIcon, XIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageContent } from '@/components/PageContent'
 import { PageHeader } from '@/components/PageHeader'
@@ -40,6 +40,7 @@ export function FinderPage() {
     const t = useT()
     const navigate = useNavigate()
     const [search, setSearch] = useState('')
+    const deferredSearch = useDeferredValue(search)
     const [selected, setSelected] = useState<FinderItem | null>(null)
     const [typeFilter, setTypeFilter] = useState<'all' | 'files' | 'folders'>('all')
 
@@ -48,41 +49,47 @@ export function FinderPage() {
         queryFn: fetchRemotesList,
     })
     const resultsQuery = useQuery({
-        queryKey: ['finder', search, remotesQuery.data?.map((remote) => remote.name)],
-        queryFn: async () => {
-            const query = search.trim().toLowerCase()
-            const items: FinderItem[] = []
-            for (const remote of remotesQuery.data ?? []) {
-                try {
-                    const response = await rclone('/operations/list', {
-                        params: { query: { fs: `${remote.name}:`, remote: '', recursive: true } },
-                    })
-                    for (const item of response.list ?? []) {
-                        const name = String(item.Name ?? '')
-                        const path = String(item.Path ?? name)
-                        const isDir = Boolean(item.IsDir || item.IsBucket)
-                        if (
-                            !name.toLowerCase().includes(query) &&
-                            !path.toLowerCase().includes(query)
-                        ) {
-                            continue
-                        }
-                        items.push({
-                            remote: remote.name,
-                            name,
-                            path,
-                            isDir,
-                            size: Number(item.Size ?? 0),
-                            modTime: String(item.ModTime ?? ''),
+        queryKey: ['finder', deferredSearch, remotesQuery.data?.map((remote) => remote.name)],
+        queryFn: async ({ signal }) => {
+            const query = deferredSearch.trim().toLowerCase()
+            const remoteResults = await Promise.all(
+                (remotesQuery.data ?? []).map(async (remote) => {
+                    try {
+                        const response = await rclone('/operations/list', {
+                            params: {
+                                query: { fs: `${remote.name}:`, remote: '', recursive: true },
+                            },
+                            signal,
                         })
+                        return (response.list ?? [])
+                            .map((item): FinderItem | null => {
+                                const name = String(item.Name ?? '')
+                                const path = String(item.Path ?? name)
+                                if (
+                                    !name.toLowerCase().includes(query) &&
+                                    !path.toLowerCase().includes(query)
+                                ) {
+                                    return null
+                                }
+                                return {
+                                    remote: remote.name,
+                                    name,
+                                    path,
+                                    isDir: Boolean(item.IsDir || item.IsBucket),
+                                    size: Number(item.Size ?? 0),
+                                    modTime: String(item.ModTime ?? ''),
+                                }
+                            })
+                            .filter((item): item is FinderItem => item !== null)
+                    } catch {
+                        // Continue searching other remotes when one is unavailable.
+                        return []
                     }
-                } catch {
-                    // Continue searching other remotes when one is unavailable.
-                }
-            }
-            return items
+                })
+            )
+            return remoteResults.flat().slice(0, 500)
         },
-        enabled: search.trim().length >= 2 && !!remotesQuery.data?.length,
+        enabled: deferredSearch.trim().length >= 2 && !!remotesQuery.data?.length,
         staleTime: 30_000,
     })
 
