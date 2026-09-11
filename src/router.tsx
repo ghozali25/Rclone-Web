@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { Spinner } from '@/components/ui/spinner'
 import { useStore } from '@/lib/store'
 import { DashboardPage } from '@/pages/Dashboard'
+import { FinderPage } from '@/pages/Finder'
 import { LoginPage } from '@/pages/Login'
 import { MountsPage } from '@/pages/Mounts'
 import { MountsNewPage } from '@/pages/MountsNew'
@@ -61,6 +62,7 @@ export const router = createBrowserRouter([
                 element: <App />,
                 children: [
                     { index: true, element: <DashboardPage /> },
+                    { path: 'finder', element: <FinderPage /> },
                     { path: 'remotes', element: <RemotesPage /> },
                     { path: 'remotes/new', element: <RemotesNewPage /> },
                     { path: 'remotes/:remoteName', element: <RemotesDetailsPage /> },

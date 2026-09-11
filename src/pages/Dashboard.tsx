@@ -322,7 +322,7 @@ export function DashboardPage() {
                             icon={FolderOpenIcon}
                             title={t('dashboard.browseFiles')}
                             description={t('dashboard.browseFilesDescription')}
-                            onClick={() => navigate('/remotes')}
+                            onClick={() => navigate('/finder')}
                         />
                         <QuickActionCard
                             icon={CloudIcon}
