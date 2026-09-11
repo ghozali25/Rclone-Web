@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { AlertTriangle, Eye, EyeOff, KeyRound, Loader2, LogIn, User } from 'lucide-react'
+import { AlertTriangle, Eye, EyeOff, Globe, KeyRound, Loader2, LogIn, User } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,14 @@ import { clearPersistedQueryCache } from '@/lib/query'
 import { useStore } from '@/lib/store'
 import { isAuthFailureError, validateConnection } from '@/rclone/client'
 
+function getDefaultApiUrl() {
+    if (import.meta.env.DEV) return 'http://127.0.0.1:5572'
+
+    const port = Number(window.location.port)
+    if (!port) return ''
+    return `${window.location.protocol}//${window.location.hostname}:${port + 1}`
+}
+
 export function LoginPage() {
     const location = useLocation()
     const navigate = useNavigate()
@@ -17,8 +25,9 @@ export function LoginPage() {
     const storedUrl = useStore((state) => state.url)
     const storedUser = useStore((state) => state.user)
     const storedPass = useStore((state) => state.pass)
+    const defaultApiUrl = getDefaultApiUrl()
 
-    const [url, setUrl] = useState(() => useStore.getState().url)
+    const [url, setUrl] = useState(() => useStore.getState().url || defaultApiUrl)
     const [user, setUser] = useState(() => useStore.getState().user)
     const [pass, setPass] = useState(() => useStore.getState().pass)
 
@@ -72,10 +81,10 @@ export function LoginPage() {
             return
         }
 
-        setUrl(storedUrl)
+        setUrl(storedUrl || defaultApiUrl)
         setUser(storedUser)
         setPass(storedPass)
-    }, [loginSearchState.hasConnectionParams, storedPass, storedUrl, storedUser])
+    }, [defaultApiUrl, loginSearchState.hasConnectionParams, storedPass, storedUrl, storedUser])
 
     useEffect(() => {
         if (!loginSearchState.hasConnectionParams) {
@@ -124,14 +133,20 @@ export function LoginPage() {
     }, [location.pathname, location.search, loginMutation, loginSearchState, navigate])
 
     useEffect(() => {
-        if (loginSearchState.hasConnectionParams || !storedUrl || storedUser || storedPass) {
+        if (
+            loginSearchState.hasConnectionParams ||
+            storedUrl ||
+            storedUser ||
+            storedPass ||
+            !defaultApiUrl
+        ) {
             return
         }
 
         const autoSubmitKey = JSON.stringify({
-            url: storedUrl,
-            user: storedUser,
-            pass: storedPass,
+            url: defaultApiUrl,
+            user: '',
+            pass: '',
         })
 
         if (lastAutoSubmitKeyRef.current === autoSubmitKey) {
@@ -140,11 +155,11 @@ export function LoginPage() {
 
         lastAutoSubmitKeyRef.current = autoSubmitKey
         loginMutation.mutate({
-            url: storedUrl,
-            user: storedUser,
-            pass: storedPass,
+            url: defaultApiUrl,
+            user: '',
+            pass: '',
         })
-    }, [loginMutation, loginSearchState.hasConnectionParams, storedPass, storedUrl, storedUser])
+    }, [defaultApiUrl, loginMutation, loginSearchState.hasConnectionParams, storedPass, storedUrl, storedUser])
 
     function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -204,6 +219,28 @@ export function LoginPage() {
                                     <span>{errorMessage}</span>
                                 </div>
                             )}
+
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm leading-none font-medium" htmlFor="url">
+                                    {t('login.urlLabel')}
+                                </label>
+                                <div className="relative">
+                                    <Globe className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        autoComplete="url"
+                                        className="pl-9"
+                                        disabled={loginMutation.isPending}
+                                        id="url"
+                                        name="url"
+                                        placeholder={t('login.urlPlaceholder')}
+                                        onChange={(event) => {
+                                            setUrl(event.target.value)
+                                            setErrorMessage('')
+                                        }}
+                                        value={url}
+                                    />
+                                </div>
+                            </div>
 
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm leading-none font-medium" htmlFor="user">

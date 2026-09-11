@@ -18,7 +18,7 @@ function devRclone(): import('vite').Plugin {
         apply: 'serve',
         configureServer(server) {
             const bin = process.env.RCLONE_BIN ?? 'rclone'
-            const origin = `http://localhost:${server.config.server.port ?? 5173}`
+            const origin = `http://${RC_ADDR}:${server.config.server.port ?? 5173}`
 
             rclone = spawn(
                 bin,

@@ -938,7 +938,7 @@ export function RemotesDetailsPage() {
                                 ) : (
                                     filteredRemotes.map((name) => {
                                         const remote = remotes.find((item) => item.name === name)
-                                        const isDrive = remote?.type === 'drive'
+                                        const isDrive = remote?.type.trim().toLowerCase() === 'drive'
 
                                         return (
                                             <div key={name}>
