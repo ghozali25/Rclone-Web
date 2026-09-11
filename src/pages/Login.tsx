@@ -159,7 +159,14 @@ export function LoginPage() {
             user: '',
             pass: '',
         })
-    }, [defaultApiUrl, loginMutation, loginSearchState.hasConnectionParams, storedPass, storedUrl, storedUser])
+    }, [
+        defaultApiUrl,
+        loginMutation,
+        loginSearchState.hasConnectionParams,
+        storedPass,
+        storedUrl,
+        storedUser,
+    ])
 
     function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()

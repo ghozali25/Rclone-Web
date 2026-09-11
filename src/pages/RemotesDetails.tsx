@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
     ArchiveIcon,
+    ClipboardIcon,
     CloudIcon,
+    CopyIcon,
     DownloadIcon,
+    EyeIcon,
     FileIcon,
     FileImageIcon,
     FileSpreadsheetIcon,
@@ -15,6 +18,7 @@ import {
     MonitorIcon,
     MusicIcon,
     PencilIcon,
+    ScissorsIcon,
     SearchIcon,
     SendIcon,
     TrashIcon,
@@ -45,6 +49,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
     Empty,
     EmptyContent,
@@ -93,6 +98,32 @@ const IMAGE_EXTS = new Set([
 const SPREADSHEET_EXTS = new Set(['xlsx', 'xls', 'csv', 'ods', 'tsv', 'numbers'])
 const ARCHIVE_EXTS = new Set(['zip', 'tar', 'gz', 'bz2', 'rar', '7z', 'xz', 'zst', 'tgz'])
 const PDF_EXTS = new Set(['pdf'])
+const TEXT_EXTS = new Set([
+    'c',
+    'cpp',
+    'css',
+    'csv',
+    'go',
+    'html',
+    'ini',
+    'java',
+    'js',
+    'json',
+    'jsx',
+    'log',
+    'md',
+    'py',
+    'rs',
+    'sh',
+    'sql',
+    'toml',
+    'ts',
+    'tsx',
+    'txt',
+    'xml',
+    'yaml',
+    'yml',
+])
 
 function getFileExtension(name: string): string {
     const lastDot = name.lastIndexOf('.')
@@ -117,6 +148,18 @@ function getFileTypeIcon(name: string) {
     }
 
     return { icon: FileTextIcon, className: 'bg-muted text-muted-foreground' }
+}
+
+type PreviewKind = 'image' | 'video' | 'audio' | 'pdf' | 'text'
+
+function getPreviewKind(name: string): PreviewKind | null {
+    const ext = getFileExtension(name)
+    if (IMAGE_EXTS.has(ext)) return 'image'
+    if (['mp4', 'webm', 'mov', 'mkv'].includes(ext)) return 'video'
+    if (['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext)) return 'audio'
+    if (PDF_EXTS.has(ext)) return 'pdf'
+    if (TEXT_EXTS.has(ext)) return 'text'
+    return null
 }
 
 function normalizePath(pathParam: string | null | undefined) {
@@ -206,6 +249,14 @@ function buildServeUrl(rcUrl: string, serveAddr: string): string {
     return `${parsed.protocol}//${parsed.hostname}:${portMatch[1]}`
 }
 
+function buildServedFileUrl(baseUrl: string, path: string): string {
+    const encodedPath = path
+        .split('/')
+        .map((segment) => encodeURIComponent(segment))
+        .join('/')
+    return `${baseUrl}/${encodedPath}`
+}
+
 type ListItem = {
     rowKey: string
     Name: string
@@ -231,6 +282,17 @@ export function RemotesDetailsPage() {
         name: string
         isDir: boolean
     } | null>(null)
+    const [clipboard, setClipboard] = useState<{
+        source: { fs: string; path: string; name: string; isDir: boolean }
+        mode: 'copy' | 'move'
+    } | null>(null)
+    const [preview, setPreview] = useState<{
+        url: string
+        name: string
+        kind: PreviewKind
+        serveId: string
+    } | null>(null)
+    const [previewText, setPreviewText] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const isLocalMode = location.pathname === '/local'
@@ -538,6 +600,37 @@ export function RemotesDetailsPage() {
         },
     })
 
+    const previewMutation = useMutation({
+        mutationFn: async ({ fs, name, path }: { fs: string; name: string; path: string }) => {
+            const kind = getPreviewKind(name)
+            if (!kind) throw new Error('Preview is not available for this file type')
+
+            const result = await rclone('/serve/start', {
+                body: { type: 'http', fs, addr: ':0', allow_origin: '*' },
+            })
+            const { id: serveId, addr: serveAddr } = result
+
+            try {
+                const { url } = useStore.getState()
+                const previewUrl = buildServedFileUrl(buildServeUrl(url, serveAddr), path)
+                const text = kind === 'text' ? await (await fetch(previewUrl)).text() : ''
+                return { kind, name, previewUrl, serveId, text }
+            } catch (error) {
+                await rclone('/serve/stop', {
+                    params: { query: { id: serveId } },
+                }).catch(() => undefined)
+                throw error
+            }
+        },
+        onSuccess: ({ kind, name, previewUrl, serveId, text }) => {
+            setPreview({ kind, name, url: previewUrl, serveId })
+            setPreviewText(text)
+        },
+        onError: (error) => {
+            toast.error(error instanceof Error ? error.message : 'Preview failed')
+        },
+    })
+
     const transferMutation = useMutation({
         mutationFn: async ({
             source,
@@ -743,6 +836,52 @@ export function RemotesDetailsPage() {
         [currentPath, currentFs, downloadMutation.mutate]
     )
 
+    const handlePreview = useCallback(
+        (item: ListItem) => {
+            if (item.IsDir || !getPreviewKind(item.Name)) return
+            const itemPath = [currentPath, item.Name].filter(Boolean).join('/')
+            previewMutation.mutate({ fs: currentFs, name: item.Name, path: itemPath })
+        },
+        [currentPath, currentFs, previewMutation.mutate]
+    )
+
+    const handleClipboard = useCallback(
+        (item: ListItem, mode: 'copy' | 'move') => {
+            const itemPath = [currentPath, item.Name].filter(Boolean).join('/')
+            setClipboard({
+                source: { fs: currentFs, path: itemPath, name: item.Name, isDir: item.IsDir },
+                mode,
+            })
+            toast(mode === 'copy' ? 'Item copied to clipboard' : 'Item cut to clipboard', {
+                position: 'bottom-left',
+            })
+        },
+        [currentPath, currentFs]
+    )
+
+    const handlePaste = useCallback(() => {
+        if (!clipboard) return
+        transferMutation.mutate(
+            {
+                source: clipboard.source,
+                dstFs: currentFs,
+                dstCurrentPath: currentPath,
+                mode: clipboard.mode,
+            },
+            {
+                onSuccess: () => {
+                    if (clipboard.mode === 'move') setClipboard(null)
+                    queryClient.invalidateQueries({ queryKey: ['remote-browse'] })
+                    queryClient.invalidateQueries({ queryKey: ['jobs'] })
+                    toast.success(clipboard.mode === 'copy' ? 'Item copied' : 'Item moved')
+                },
+                onError: (error) => {
+                    toast.error(error instanceof Error ? error.message : 'Paste failed')
+                },
+            }
+        )
+    }, [clipboard, currentFs, currentPath, queryClient, transferMutation.mutate])
+
     const handleTransfer = useCallback(
         (item: ListItem) => {
             const itemPath = [currentPath, item.Name].filter(Boolean).join('/')
@@ -837,6 +976,17 @@ export function RemotesDetailsPage() {
         [uploadMutation, currentFs, currentPath]
     )
 
+    const handlePreviewOpenChange = useCallback(
+        (open: boolean) => {
+            if (open || !preview) return
+            const serveId = preview.serveId
+            setPreview(null)
+            setPreviewText('')
+            rclone('/serve/stop', { params: { query: { id: serveId } } }).catch(() => undefined)
+        },
+        [preview]
+    )
+
     // --- Render ---
 
     return (
@@ -848,6 +998,55 @@ export function RemotesDetailsPage() {
                 className="hidden"
                 onChange={handleFileChange}
             />
+
+            <Dialog open={!!preview} onOpenChange={handlePreviewOpenChange}>
+                <DialogContent className="max-w-4xl overflow-hidden p-0">
+                    <DialogHeader className="border-b px-5 py-4">
+                        <DialogTitle className="truncate pr-8">{preview?.name}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex max-h-[75vh] min-h-48 items-center justify-center overflow-auto bg-muted/30 p-4">
+                        {preview?.kind === 'image' && (
+                            <img
+                                src={preview.url}
+                                alt={preview.name}
+                                className="max-h-[68vh] max-w-full object-contain"
+                            />
+                        )}
+                        {preview?.kind === 'video' && (
+                            <video className="max-h-[68vh] max-w-full" controls src={preview.url}>
+                                <track
+                                    kind="captions"
+                                    src="data:text/vtt,WEBVTT"
+                                    srcLang="en"
+                                    label="Captions"
+                                />
+                            </video>
+                        )}
+                        {preview?.kind === 'audio' && (
+                            <audio className="w-full max-w-xl" controls src={preview.url}>
+                                <track
+                                    kind="captions"
+                                    src="data:text/vtt,WEBVTT"
+                                    srcLang="en"
+                                    label="Captions"
+                                />
+                            </audio>
+                        )}
+                        {preview?.kind === 'pdf' && (
+                            <iframe
+                                title={preview.name}
+                                src={preview.url}
+                                className="h-[68vh] w-full rounded border bg-background"
+                            />
+                        )}
+                        {preview?.kind === 'text' && (
+                            <pre className="w-full overflow-auto whitespace-pre-wrap rounded border bg-background p-4 text-xs leading-5">
+                                {previewText}
+                            </pre>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <aside
                 className={cn(
@@ -938,7 +1137,8 @@ export function RemotesDetailsPage() {
                                 ) : (
                                     filteredRemotes.map((name) => {
                                         const remote = remotes.find((item) => item.name === name)
-                                        const isDrive = remote?.type.trim().toLowerCase() === 'drive'
+                                        const isDrive =
+                                            remote?.type.trim().toLowerCase() === 'drive'
 
                                         return (
                                             <div key={name}>
@@ -1240,6 +1440,23 @@ export function RemotesDetailsPage() {
                                         ? t('remotesDetails.uploading')
                                         : t('remotesDetails.upload')}
                                 </Button>
+                                <Tooltip>
+                                    <TooltipTrigger
+                                        render={
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="icon"
+                                                disabled={!clipboard || transferMutation.isPending}
+                                                onClick={handlePaste}
+                                                aria-label="Paste"
+                                            >
+                                                <ClipboardIcon />
+                                            </Button>
+                                        }
+                                    />
+                                    <TooltipContent>Paste</TooltipContent>
+                                </Tooltip>
 
                                 <RefreshButton
                                     isFetching={listQuery.isFetching}
@@ -1411,6 +1628,87 @@ export function RemotesDetailsPage() {
 
                                                         <TableCell className="px-4 py-3">
                                                             <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100">
+                                                                <Tooltip>
+                                                                    <TooltipTrigger
+                                                                        render={
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="icon-xs"
+                                                                                aria-label={`Preview ${item.Name}`}
+                                                                                disabled={
+                                                                                    isMutating ||
+                                                                                    item.IsDir ||
+                                                                                    !getPreviewKind(
+                                                                                        item.Name
+                                                                                    )
+                                                                                }
+                                                                                onClick={() =>
+                                                                                    handlePreview(
+                                                                                        item
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <EyeIcon className="size-3.5" />
+                                                                            </Button>
+                                                                        }
+                                                                    />
+                                                                    <TooltipContent>
+                                                                        Preview
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger
+                                                                        render={
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="icon-xs"
+                                                                                aria-label={`Copy ${item.Name}`}
+                                                                                disabled={
+                                                                                    isMutating
+                                                                                }
+                                                                                onClick={() =>
+                                                                                    handleClipboard(
+                                                                                        item,
+                                                                                        'copy'
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <CopyIcon className="size-3.5" />
+                                                                            </Button>
+                                                                        }
+                                                                    />
+                                                                    <TooltipContent>
+                                                                        Copy
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger
+                                                                        render={
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="icon-xs"
+                                                                                aria-label={`Cut ${item.Name}`}
+                                                                                disabled={
+                                                                                    isMutating
+                                                                                }
+                                                                                onClick={() =>
+                                                                                    handleClipboard(
+                                                                                        item,
+                                                                                        'move'
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <ScissorsIcon className="size-3.5" />
+                                                                            </Button>
+                                                                        }
+                                                                    />
+                                                                    <TooltipContent>
+                                                                        Cut
+                                                                    </TooltipContent>
+                                                                </Tooltip>
                                                                 <div className="hidden sm:block">
                                                                     <Tooltip>
                                                                         <TooltipTrigger

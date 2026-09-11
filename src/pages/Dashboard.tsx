@@ -2,16 +2,21 @@ import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
     ActivityIcon,
     AlertTriangleIcon,
+    ArrowRightIcon,
     ArrowUpRightIcon,
     CheckCircle2Icon,
     CloudIcon,
     ExternalLinkIcon,
+    FileIcon,
+    FolderOpenIcon,
     GlobeIcon,
     HardDriveIcon,
     type LucideIcon,
+    SearchIcon,
     XIcon,
 } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Changelog } from '@/components/Changelog'
 import { toRecord } from '@/components/OptionField'
 import { PageContent } from '@/components/PageContent'
@@ -47,7 +52,9 @@ const LINKS: readonly {
 
 export function DashboardPage() {
     const t = useT()
+    const navigate = useNavigate()
     const queryClient = useQueryClient()
+    const [finderQuery, setFinderQuery] = useState('')
     const sponsorQuery = useQuery({
         queryKey: ['sponsor'],
         queryFn: fetchSponsor,
@@ -62,6 +69,49 @@ export function DashboardPage() {
         queryFn: fetchRemotesList,
     })
     const remotesList = useMemo(() => remotesListQuery.data ?? [], [remotesListQuery.data])
+    const finderResultsQuery = useQuery({
+        queryKey: ['dashboard', 'finder', finderQuery, remotesList.map((remote) => remote.name)],
+        queryFn: async () => {
+            const query = finderQuery.trim().toLowerCase()
+            const results: FinderResult[] = []
+
+            for (const remote of remotesList) {
+                try {
+                    const response = await rclone('/operations/list', {
+                        params: {
+                            query: {
+                                fs: `${remote.name}:`,
+                                remote: '',
+                                recursive: true,
+                            },
+                        },
+                    })
+                    for (const item of response.list ?? []) {
+                        const name = String(item.Name ?? '')
+                        const path = String(item.Path ?? name)
+                        if (
+                            name.toLowerCase().includes(query) ||
+                            path.toLowerCase().includes(query)
+                        ) {
+                            results.push({
+                                remote: remote.name,
+                                name,
+                                path,
+                                isDir: Boolean(item.IsDir || item.IsBucket),
+                                size: Number(item.Size ?? 0),
+                            })
+                        }
+                    }
+                } catch {
+                    // An unavailable remote should not block results from other remotes.
+                }
+            }
+
+            return results.slice(0, 24)
+        },
+        enabled: finderQuery.trim().length >= 2 && remotesList.length > 0,
+        staleTime: 30_000,
+    })
     const usageQueries = useQueries({
         queries: remotesList.map((remote) => ({
             queryKey: ['remotes', 'usage', remote.name] as const,
@@ -193,6 +243,101 @@ export function DashboardPage() {
 
             <PageContent>
                 <div className="space-y-6">
+                    <section className="relative overflow-hidden rounded-2xl border bg-slate-950 px-5 py-6 text-white shadow-sm sm:px-8 sm:py-8">
+                        <div className="pointer-events-none absolute -top-20 right-0 size-64 rounded-full bg-cyan-400/15 blur-3xl" />
+                        <div className="relative max-w-3xl">
+                            <p className="mb-2 text-xs font-semibold tracking-[0.22em] text-cyan-300 uppercase">
+                                {t('dashboard.finderEyebrow')}
+                            </p>
+                            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                                {t('dashboard.finderTitle')}
+                            </h2>
+                            <p className="mt-2 max-w-xl text-sm text-slate-300">
+                                {t('dashboard.finderDescription')}
+                            </p>
+                            <div className="mt-6 flex max-w-2xl items-center gap-3 rounded-xl bg-white px-4 py-3 text-slate-900 shadow-lg ring-1 ring-white/20">
+                                <SearchIcon className="size-5 shrink-0 text-slate-400" />
+                                <input
+                                    value={finderQuery}
+                                    onChange={(event) => setFinderQuery(event.target.value)}
+                                    placeholder={t('dashboard.finderPlaceholder')}
+                                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                                    aria-label={t('dashboard.finderPlaceholder')}
+                                />
+                                {finderQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setFinderQuery('')}
+                                        className="text-slate-400 transition-colors hover:text-slate-900"
+                                        aria-label={t('common.clear')}
+                                    >
+                                        <XIcon className="size-4" />
+                                    </button>
+                                )}
+                            </div>
+                            {finderQuery.trim().length >= 2 && (
+                                <div className="mt-3 max-w-2xl overflow-hidden rounded-xl border border-white/10 bg-slate-900/95">
+                                    {finderResultsQuery.isPending ? (
+                                        <div className="px-4 py-5 text-sm text-slate-400">
+                                            {t('dashboard.finderSearching')}
+                                        </div>
+                                    ) : finderResultsQuery.data?.length ? (
+                                        finderResultsQuery.data.map((result) => (
+                                            <button
+                                                type="button"
+                                                key={`${result.remote}:${result.path}`}
+                                                className="flex w-full items-center gap-3 border-b border-white/5 px-4 py-3 text-left transition-colors last:border-0 hover:bg-white/10"
+                                                onClick={() =>
+                                                    navigate(
+                                                        `/remotes/${encodeURIComponent(result.remote)}?path=${encodeURIComponent(result.path.split('/').slice(0, -1).join('/'))}`
+                                                    )
+                                                }
+                                            >
+                                                {result.isDir ? (
+                                                    <FolderOpenIcon className="size-4 shrink-0 text-cyan-300" />
+                                                ) : (
+                                                    <FileIcon className="size-4 shrink-0 text-slate-400" />
+                                                )}
+                                                <span className="min-w-0 flex-1 truncate text-sm">
+                                                    {result.name}
+                                                </span>
+                                                <span className="max-w-44 truncate text-xs text-slate-400">
+                                                    {result.remote}
+                                                </span>
+                                                <ArrowRightIcon className="size-3.5 shrink-0 text-slate-500" />
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="px-4 py-5 text-sm text-slate-400">
+                                            {t('dashboard.finderNoResults')}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
+                    <section className="grid gap-4 md:grid-cols-3">
+                        <QuickActionCard
+                            icon={FolderOpenIcon}
+                            title={t('dashboard.browseFiles')}
+                            description={t('dashboard.browseFilesDescription')}
+                            onClick={() => navigate('/remotes')}
+                        />
+                        <QuickActionCard
+                            icon={CloudIcon}
+                            title={t('dashboard.manageRemotes')}
+                            description={t('dashboard.manageRemotesDescription')}
+                            onClick={() => navigate('/remotes')}
+                        />
+                        <QuickActionCard
+                            icon={ActivityIcon}
+                            title={t('dashboard.viewTransfers')}
+                            description={t('dashboard.viewTransfersDescription')}
+                            onClick={() => navigate('/transfers')}
+                        />
+                    </section>
+
                     <DiscordBanner />
 
                     {sponsor?.type === 'banner' ? (
@@ -454,6 +599,43 @@ type ServeSummary = {
     remoteName: string
     source: string
     auth: 'none' | 'key' | 'basic' | 'proxy'
+}
+
+type FinderResult = {
+    remote: string
+    name: string
+    path: string
+    isDir: boolean
+    size: number
+}
+
+function QuickActionCard({
+    icon: Icon,
+    title,
+    description,
+    onClick,
+}: {
+    icon: LucideIcon
+    title: string
+    description: string
+    onClick: () => void
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="group flex items-center gap-4 rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/50"
+        >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600 transition-colors group-hover:bg-cyan-500 group-hover:text-white">
+                <Icon className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">{title}</span>
+                <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+            </span>
+            <ArrowUpRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+        </button>
+    )
 }
 
 function DashboardLink({ link }: { link: (typeof LINKS)[number] }) {
