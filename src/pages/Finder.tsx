@@ -57,7 +57,11 @@ export function FinderPage() {
                     try {
                         const response = await rclone('/operations/list', {
                             params: {
-                                query: { fs: `${remote.name}:`, remote: '', recursive: true },
+                                query: {
+                                    fs: `${remote.name}:`,
+                                    remote: '',
+                                    recursive: Boolean(query),
+                                },
                             },
                             signal,
                         })
@@ -66,6 +70,7 @@ export function FinderPage() {
                                 const name = String(item.Name ?? '')
                                 const path = String(item.Path ?? name)
                                 if (
+                                    query &&
                                     !name.toLowerCase().includes(query) &&
                                     !path.toLowerCase().includes(query)
                                 ) {
@@ -89,7 +94,7 @@ export function FinderPage() {
             )
             return remoteResults.flat().slice(0, 500)
         },
-        enabled: deferredSearch.trim().length >= 2 && !!remotesQuery.data?.length,
+        enabled: !!remotesQuery.data?.length,
         staleTime: 30_000,
     })
 
@@ -171,19 +176,21 @@ export function FinderPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {resultsQuery.isPending ? (
-                                        <TableRow>
-                                            <TableCell colSpan={3} className="py-14 text-center">
-                                                <Spinner className="mx-auto size-6" />
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : !search.trim() ? (
+                                    {!search.trim() &&
+                                    !resultsQuery.isFetching &&
+                                    results.length === 0 ? (
                                         <TableRow>
                                             <TableCell
                                                 colSpan={3}
                                                 className="py-14 text-center text-muted-foreground"
                                             >
-                                                {t('finder.startSearching')}
+                                                {t('finder.noResults')}
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : resultsQuery.isPending || resultsQuery.isFetching ? (
+                                        <TableRow>
+                                            <TableCell colSpan={3} className="py-14 text-center">
+                                                <Spinner className="mx-auto size-6" />
                                             </TableCell>
                                         </TableRow>
                                     ) : results.length === 0 ? (
